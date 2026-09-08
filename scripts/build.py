@@ -47,7 +47,7 @@ def main():
             parser.error("Missing SDK tool: " + str(tool))
     build = ROOT / "build"
     build.mkdir(exist_ok=True)
-    out = build / "Task-Center-Installer-3.1.apk"
+    out = build / "Task-Center-Installer-3.2.apk"
     with tempfile.TemporaryDirectory(prefix="task-center-", dir=build) as tmp:
         tmp = Path(tmp)
         assets, classes, dex = tmp / "assets", tmp / "classes", tmp / "dex"

@@ -162,8 +162,19 @@ public class MainActivity extends Activity {
         Build.MANUFACTURER + " " + Build.MODEL + " · Android " + Build.VERSION.RELEASE,
         14,
         Color.DKGRAY);
+    if (!ready()
+        && InstallResultReceiver.report(this)
+            .contains("INSTALL_FAILED_HYPEROS_ISOLATION_VIOLATION"))
+      text(
+          "HyperOS запретил установку из Task Center. Сохраните APK в «Загрузки», затем откройте"
+              + " его самостоятельно через штатный «Проводник» Xiaomi. После установки вернитесь"
+              + " сюда.",
+          17,
+          Color.DKGRAY);
+    if (!ready() && new File(getCacheDir(), "manual-security.apk").isFile())
+      button("Сохранить APK в «Загрузки»", () -> requestSave());
     if (InstallResultReceiver.prefs(this).contains("report"))
-      text(InstallResultReceiver.report(this), 14, Color.DKGRAY);
+      button("Показать отчёт установки", () -> error(InstallResultReceiver.report(this)));
     if (InstallResultReceiver.prefs(this).getBoolean("active", false)) {
       text(
           "Ожидается ответ Android. Если подтверждение потерялось после закрытия приложения,"
@@ -224,7 +235,7 @@ public class MainActivity extends Activity {
       version = p.versionName + " (" + p.getLongVersionCode() + ")";
     } catch (Exception ignored) {
     }
-    return "Task Center 3.1\nМодель: "
+    return "Task Center 3.2\nМодель: "
         + Build.MANUFACTURER
         + " "
         + Build.MODEL
@@ -304,18 +315,18 @@ public class MainActivity extends Activity {
       for (CatalogPolicy.Entry candidate : catalog.entries) {
         if (diagnosticAllowed(candidate)) {
           button(
-              "Пробная установка для Xiaomi 14",
+              "Скачать APK для ручной установки",
               () ->
                   new AlertDialog.Builder(this)
-                      .setTitle("Диагностика установки")
+                      .setTitle("Ручная установка на Xiaomi 14")
                       .setMessage(
-                          "На Xiaomi 14 эта версия ранее не установилась. Повторная попытка"
-                              + " сохранит ответ Android. Если система разрешит обновление,"
-                              + " заменится всё приложение «Безопасность» китайской версией 12.8.3;"
-                              + " настройки и функции могут измениться. Совместимость не"
-                              + " подтверждена. Продолжить?")
+                          "На присланном Xiaomi 14 установка APK вручную и открытие Task Center"
+                              + " прошли успешно. Работа задач ещё не проверена. Сохраните файл в"
+                              + " «Загрузки» и откройте его через штатный «Проводник» Xiaomi."
+                              + " Обновится всё приложение «Безопасность» до китайской версии"
+                              + " 12.8.3; настройки и функции могут измениться.")
                       .setNegativeButton("Отмена", null)
-                      .setPositiveButton("Попробовать", (d, w) -> install(candidate, true))
+                      .setPositiveButton("Скачать", (d, w) -> install(candidate, true, true))
                       .show());
           break;
         }
@@ -431,17 +442,17 @@ public class MainActivity extends Activity {
   }
 
   void install(CatalogPolicy.Entry entry) {
-    install(entry, false);
+    install(entry, false, false);
   }
 
-  void install(CatalogPolicy.Entry entry, boolean diagnostic) {
+  void install(CatalogPolicy.Entry entry, boolean diagnostic, boolean manual) {
     if (InstallResultReceiver.prefs(this).getBoolean("active", false)) {
       error(
           "Предыдущая сессия ещё не завершена. Подтвердите или отмените её в системном установщике."
               + " Отчёт можно скопировать ниже.");
       return;
     }
-    if (!getPackageManager().canRequestPackageInstalls()) {
+    if (!manual && !getPackageManager().canRequestPackageInstalls()) {
       try {
         startActivity(
             new Intent(
@@ -499,17 +510,97 @@ public class MainActivity extends Activity {
                         == null))
               throw new IOException("Версия на телефоне изменилась. Повторите подбор компонента.");
             if (network.cancelled) throw new IOException("Скачивание отменено");
-            commitInstall(part);
+            File cached = new File(getCacheDir(), "manual-security.apk");
+            if (!part.renameTo(cached))
+              throw new IOException("Не удалось сохранить проверенный APK");
+            InstallResultReceiver.prefs(this)
+                .edit()
+                .putString("apkHash", entry.sha256)
+                .putLong("apkVersion", entry.versionCode)
+                .commit();
+            if (!manual) commitInstall(cached);
+            else
+              InstallResultReceiver.append(
+                  this, "APK проверен. Ожидается ручная установка; успех не подтверждён.");
             ui(
                 () -> {
                   busy = false;
                   show();
+                  if (manual) requestSave();
                 });
           } catch (Exception e) {
             InstallResultReceiver.append(this, "Ошибка до завершения установки: " + e);
             throw e;
           } finally {
             part.delete();
+          }
+        });
+  }
+
+  void requestSave() {
+    try {
+      startActivityForResult(
+          new Intent(Intent.ACTION_CREATE_DOCUMENT)
+              .addCategory(Intent.CATEGORY_OPENABLE)
+              .setType("application/vnd.android.package-archive")
+              .putExtra(Intent.EXTRA_TITLE, "Security-Xiaomi-12.8.3.apk"),
+          120);
+    } catch (Exception e) {
+      error("Не удалось открыть выбор папки: " + e.getMessage());
+    }
+  }
+
+  @Override
+  protected void onActivityResult(int request, int result, Intent data) {
+    super.onActivityResult(request, result, data);
+    if (request != 120 || result != RESULT_OK || data == null || data.getData() == null) return;
+    Uri destination = data.getData();
+    background(
+        "Сохранение проверенного APK…",
+        () -> {
+          try {
+            File file = new File(getCacheDir(), "manual-security.apk");
+            PackageInfo p =
+                getPackageManager()
+                    .getPackageArchiveInfo(file.getPath(), PackageManager.GET_SIGNING_CERTIFICATES);
+            if (!file.isFile()
+                || !hash(file).equals(InstallResultReceiver.prefs(this).getString("apkHash", ""))
+                || p == null
+                || !PKG.equals(p.packageName)
+                || !signed(p)
+                || !signed(installed())
+                || p.getLongVersionCode()
+                    != InstallResultReceiver.prefs(this).getLong("apkVersion", -1)
+                || p.getLongVersionCode() < installed().getLongVersionCode())
+              throw new IOException("APK или версия на телефоне изменились. Повторите скачивание.");
+            try (InputStream in = new FileInputStream(file);
+                OutputStream out = getContentResolver().openOutputStream(destination, "wt")) {
+              if (out == null) throw new IOException("Не удалось открыть выбранный файл");
+              byte[] buffer = new byte[65536];
+              int count;
+              while ((count = in.read(buffer)) != -1) {
+                if (network.cancelled) throw new IOException("Сохранение отменено");
+                out.write(buffer, 0, count);
+              }
+            }
+            InstallResultReceiver.append(
+                this, "APK сохранён пользователем. Это не подтверждение установки.");
+            ui(
+                () -> {
+                  busy = false;
+                  show();
+                  error(
+                      "APK сохранён. Откройте штатный «Проводник» Xiaomi, найдите файл"
+                          + " Security-Xiaomi-12.8.3.apk в выбранной папке и нажмите на него."
+                          + " Подтвердите обновление, затем вернитесь в Task Center. Если"
+                          + " сохранение было в другой папке, ищите файл там.");
+                });
+          } catch (Exception e) {
+            try {
+              android.provider.DocumentsContract.deleteDocument(getContentResolver(), destination);
+            } catch (Exception ignored) {
+            }
+            throw e;
           }
         });
   }
