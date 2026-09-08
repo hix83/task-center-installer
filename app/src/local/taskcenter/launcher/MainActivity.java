@@ -45,6 +45,9 @@ public class MainActivity extends Activity {
         && !"local.taskcenter.launcher.MANAGE".equals(getIntent().getAction())
         && (getPreferences(MODE_PRIVATE).getBoolean("setupSeen3", false)
             || "local.taskcenter.launcher.OPEN".equals(getIntent().getAction()))
+        && (!InstallResultReceiver.prefs(this).contains("report")
+            || InstallResultReceiver.prefs(this).getBoolean("reviewed", false))
+        && !InstallResultReceiver.prefs(this).getBoolean("active", false)
         && ready()) {
       openTasks();
       return;
@@ -52,9 +55,41 @@ public class MainActivity extends Activity {
     show();
   }
 
+  final Handler reportHandler = new Handler(Looper.getMainLooper());
+  String lastReport = "";
+  final Runnable watchResult =
+      new Runnable() {
+        public void run() {
+          if (!busy) {
+            String latest = InstallResultReceiver.report(MainActivity.this);
+            if (!latest.equals(lastReport)) {
+              lastReport = latest;
+              show();
+            }
+            if (InstallResultReceiver.confirmation != null) {
+              Intent confirmation = InstallResultReceiver.confirmation;
+              InstallResultReceiver.confirmation = null;
+              try {
+                startActivity(confirmation);
+              } catch (Exception e) {
+                InstallResultReceiver.append(
+                    MainActivity.this, "Не удалось открыть подтверждение: " + e);
+              }
+            }
+          }
+          reportHandler.postDelayed(this, 1000);
+        }
+      };
+
+  protected void onPause() {
+    reportHandler.removeCallbacks(watchResult);
+    super.onPause();
+  }
+
   protected void onResume() {
     super.onResume();
     if (shown && !busy) show();
+    reportHandler.post(watchResult);
   }
 
   boolean ready() {
@@ -127,6 +162,31 @@ public class MainActivity extends Activity {
         Build.MANUFACTURER + " " + Build.MODEL + " · Android " + Build.VERSION.RELEASE,
         14,
         Color.DKGRAY);
+    if (InstallResultReceiver.prefs(this).contains("report"))
+      text(InstallResultReceiver.report(this), 14, Color.DKGRAY);
+    if (InstallResultReceiver.prefs(this).getBoolean("active", false)) {
+      text(
+          "Ожидается ответ Android. Если подтверждение потерялось после закрытия приложения,"
+              + " отмените сессию и повторите попытку.",
+          15,
+          Color.DKGRAY);
+      button(
+          "Отменить незавершённую сессию",
+          () -> {
+            int session = InstallResultReceiver.prefs(this).getInt("session", -1);
+            try {
+              getPackageManager().getPackageInstaller().abandonSession(session);
+              InstallResultReceiver.confirmation = null;
+              InstallResultReceiver.prefs(this).edit().putBoolean("active", false).commit();
+              InstallResultReceiver.append(
+                  this,
+                  "Запрошена отмена сессии пользователем; результат установки не подтверждён.");
+              show();
+            } catch (Exception e) {
+              error("Не удалось отменить сессию: " + e.getMessage());
+            }
+          });
+    }
     if (ready()) {
       text("Всё готово", 24, Color.rgb(28, 120, 80));
       text(
@@ -137,7 +197,7 @@ public class MainActivity extends Activity {
       button("Добавить ярлык на рабочий стол", () -> pinShortcut());
       button("Обновить каталог", () -> refreshCatalog());
       if (!catalogNotice.isEmpty()) text(catalogNotice, 14, Color.DKGRAY);
-      button("Скопировать сведения об устройстве", () -> copyDiagnostics());
+      button("Скопировать отчёт", () -> copyDiagnostics());
       rollbackSection();
       text(
           "Если значка нет на рабочем столе, перенесите Task Center из списка приложений.",
@@ -164,7 +224,7 @@ public class MainActivity extends Activity {
       version = p.versionName + " (" + p.getLongVersionCode() + ")";
     } catch (Exception ignored) {
     }
-    return "Task Center 3.0\nМодель: "
+    return "Task Center 3.1\nМодель: "
         + Build.MANUFACTURER
         + " "
         + Build.MODEL
@@ -183,9 +243,13 @@ public class MainActivity extends Activity {
   }
 
   void copyDiagnostics() {
+    InstallResultReceiver.prefs(this).edit().putBoolean("reviewed", true).apply();
     android.content.ClipboardManager cb =
         (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-    cb.setPrimaryClip(ClipData.newPlainText("Task Center — совместимость", diagnostics()));
+    cb.setPrimaryClip(
+        ClipData.newPlainText(
+            "Task Center — совместимость",
+            diagnostics() + "\n\n" + InstallResultReceiver.report(this)));
     Toast.makeText(this, "Сведения скопированы — можно отправить разработчику", Toast.LENGTH_LONG)
         .show();
   }
@@ -236,13 +300,34 @@ public class MainActivity extends Activity {
               : "Разрешить установку",
           () -> install(entry));
     }
+    if (selected == null && catalog != null) {
+      for (CatalogPolicy.Entry candidate : catalog.entries) {
+        if (diagnosticAllowed(candidate)) {
+          button(
+              "Пробная установка для Xiaomi 14",
+              () ->
+                  new AlertDialog.Builder(this)
+                      .setTitle("Диагностика установки")
+                      .setMessage(
+                          "На Xiaomi 14 эта версия ранее не установилась. Повторная попытка"
+                              + " сохранит ответ Android. Если система разрешит обновление,"
+                              + " заменится всё приложение «Безопасность» китайской версией 12.8.3;"
+                              + " настройки и функции могут измениться. Совместимость не"
+                              + " подтверждена. Продолжить?")
+                      .setNegativeButton("Отмена", null)
+                      .setPositiveButton("Попробовать", (d, w) -> install(candidate, true))
+                      .show());
+          break;
+        }
+      }
+    }
     status =
         text(
             "Установка выполняется только после вашего нажатия. После системного подтверждения"
                 + " вернитесь сюда.",
             15,
             Color.DKGRAY);
-    button("Скопировать сведения об устройстве", () -> copyDiagnostics());
+    button("Скопировать отчёт", () -> copyDiagnostics());
     rollbackSection();
     text(
         "Независимый установщик. Каталог и APK загружаются с GitHub. Серийный номер, аккаунты и"
@@ -328,7 +413,34 @@ public class MainActivity extends Activity {
     return hex.toString();
   }
 
+  boolean diagnosticAllowed(CatalogPolicy.Entry entry) {
+    try {
+      PackageInfo p = installed();
+      return signed(p)
+          && PKG.equals(entry.packageName)
+          && InstallStatus.diagnosticAllowed(
+              Build.MODEL,
+              Build.VERSION.SDK_INT,
+              p.versionName,
+              p.getLongVersionCode(),
+              entry.versionName,
+              entry.versionCode);
+    } catch (Exception e) {
+      return false;
+    }
+  }
+
   void install(CatalogPolicy.Entry entry) {
+    install(entry, false);
+  }
+
+  void install(CatalogPolicy.Entry entry, boolean diagnostic) {
+    if (InstallResultReceiver.prefs(this).getBoolean("active", false)) {
+      error(
+          "Предыдущая сессия ещё не завершена. Подтвердите или отмените её в системном установщике."
+              + " Отчёт можно скопировать ниже.");
+      return;
+    }
     if (!getPackageManager().canRequestPackageInstalls()) {
       try {
         startActivity(
@@ -340,6 +452,21 @@ public class MainActivity extends Activity {
       }
       return;
     }
+    InstallResultReceiver.prefs(this)
+        .edit()
+        .putBoolean("reviewed", false)
+        .putString(
+            "report",
+            diagnostics()
+                + "\nЦель: "
+                + entry.versionName
+                + " / "
+                + entry.versionCode
+                + "\nРежим: "
+                + (diagnostic ? "пробный, совместимость не подтверждена" : "каталог")
+                + "\nSHA-256: "
+                + entry.sha256)
+        .commit();
     background(
         "Скачивание «Безопасности»…",
         () -> {
@@ -366,33 +493,69 @@ public class MainActivity extends Activity {
                 || !signed(p))
               throw new IOException("Подпись, пакет или версия скачанного APK не прошли проверку.");
             if (!signed(installed())
-                || CatalogPolicy.select(java.util.Collections.singletonList(entry), device())
-                    == null)
+                || (diagnostic
+                    ? !diagnosticAllowed(entry)
+                    : CatalogPolicy.select(java.util.Collections.singletonList(entry), device())
+                        == null))
               throw new IOException("Версия на телефоне изменилась. Повторите подбор компонента.");
             if (network.cancelled) throw new IOException("Скачивание отменено");
-            File f = new File(getCacheDir(), "security.apk");
-            if (!part.renameTo(f))
-              throw new IOException("Не удалось подготовить APK для установки");
+            commitInstall(part);
             ui(
                 () -> {
                   busy = false;
                   show();
-                  Uri u = Uri.parse("content://local.taskcenter.launcher.apk/security.apk");
-                  Intent i =
-                      new Intent(Intent.ACTION_VIEW)
-                          .setDataAndType(u, "application/vnd.android.package-archive")
-                          .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                  i.setClipData(ClipData.newRawUri("APK", u));
-                  try {
-                    startActivity(i);
-                  } catch (Exception e) {
-                    error("Не удалось открыть системный установщик: " + e.getMessage());
-                  }
                 });
+          } catch (Exception e) {
+            InstallResultReceiver.append(this, "Ошибка до завершения установки: " + e);
+            throw e;
           } finally {
             part.delete();
           }
         });
+  }
+
+  void commitInstall(File file) throws Exception {
+    PackageInstaller installer = getPackageManager().getPackageInstaller();
+    PackageInstaller.SessionParams params =
+        new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+    params.setAppPackageName(PKG);
+    params.setSize(file.length());
+    if (Build.VERSION.SDK_INT >= 31)
+      params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED);
+    int id = installer.createSession(params);
+    boolean committed = false;
+    try (PackageInstaller.Session session = installer.openSession(id)) {
+      try (InputStream in = new FileInputStream(file);
+          OutputStream out = session.openWrite("base.apk", 0, file.length())) {
+        byte[] buffer = new byte[65536];
+        int count;
+        while ((count = in.read(buffer)) != -1) {
+          if (network.cancelled) throw new IOException("Установка отменена до отправки");
+          out.write(buffer, 0, count);
+        }
+        session.fsync(out);
+      }
+      Intent callback =
+          new Intent(this, InstallResultReceiver.class)
+              .setAction(getPackageName() + ".INSTALL_RESULT." + id);
+      int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+      if (Build.VERSION.SDK_INT >= 31) flags |= PendingIntent.FLAG_MUTABLE;
+      PendingIntent result = PendingIntent.getBroadcast(this, id, callback, flags);
+      InstallResultReceiver.prefs(this)
+          .edit()
+          .putInt("session", id)
+          .putBoolean("active", true)
+          .commit();
+      InstallResultReceiver.append(
+          this, "Session: " + id + " — отправлена системе; итог ещё не получен");
+      session.commit(result.getIntentSender());
+      committed = true;
+    } finally {
+      if (!committed) {
+        installer.abandonSession(id);
+        InstallResultReceiver.prefs(this).edit().putBoolean("active", false).commit();
+      }
+    }
   }
 
   void rollbackSection() {
