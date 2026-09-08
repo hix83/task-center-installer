@@ -2,7 +2,7 @@
 
 Русскоязычный офлайн-установщик и ярлык **Automated tasks / Task Center** для Xiaomi с HyperOS.
 
-**[Скачать APK](https://github.com/hix83/task-center-installer/releases/latest)** · [Инструкция](docs/INSTALL-RU.txt) · [Apache 2.0](LICENSE)
+**[Скачать APK](https://github.com/hix83/task-center-installer/releases/tag/v2.1.0)** · [Инструкция](docs/INSTALL-RU.txt) · [Apache 2.0](LICENSE)
 
 Это независимый проект, не официальный продукт Xiaomi. **Пробная сборка:** полный сценарий первоначальной установки через мастер ещё не проверен на телефоне с глобальной «Безопасностью».
 
