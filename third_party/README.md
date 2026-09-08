@@ -1,4 +1,2 @@
-Place the exact, unmodified Xiaomi Security APK here as `security.apk`.
-Obtain it from the mirror listed in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
-Do not rename another version to bypass validation. The build verifies the file hash,
-package/version and signing certificate before embedding it. APKs are ignored by Git.
+Version 3.0 builds without the Xiaomi APK. Components are fetched at runtime from the signed catalog.
+See ../THIRD_PARTY_NOTICES.md for provenance. Do not commit APK binaries or signing keys here.

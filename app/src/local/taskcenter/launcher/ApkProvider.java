@@ -39,7 +39,7 @@ public class ApkProvider extends ContentProvider {
       for (int i = 0; i < cols.length; i++)
         row[i] =
             OpenableColumns.DISPLAY_NAME.equals(cols[i])
-                ? "Security-12.8.3.apk"
+                ? "Xiaomi-Security.apk"
                 : OpenableColumns.SIZE.equals(cols[i]) ? f.length() : null;
       c.addRow(row);
       return c;

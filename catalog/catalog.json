@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "revision": 1,
+  "releases": [
+    {
+      "id": "security-12.8.3-cn",
+      "versionName": "12.8.3-260831.0.1",
+      "versionCode": 40001283,
+      "packageName": "com.miui.securitycenter",
+      "url": "https://github.com/hix83/task-center-installer/releases/download/v2.1.0/Security-Xiaomi-12.8.3.apk",
+      "sha256": "9a45f41280bdb425321ebc782f8aeaf3d5474487671c054e737d9c61b6dc6d6b",
+      "size": 73423552,
+      "rules": [
+        {
+          "device": "klimt",
+          "model": "2506BPN68G",
+          "sdk": 37,
+          "incremental": "OS3.0.336.0.XOSRUXM",
+          "fromVersionCodes": [
+            40001275
+          ],
+          "evidence": "Проверена установка через системный установщик и открытие Task Center. Срабатывание задач не проверено."
+        },
+        {
+          "device": "warhol",
+          "model": "2602EPTC0G",
+          "sdk": 36,
+          "incremental": "OS3.0.306.0.WPSRUXM",
+          "fromVersionCodes": [
+            40001261
+          ],
+          "evidence": "Проверены установка через ADB и открытие Task Center. Установка через мастер и срабатывание задач не проверены."
+        }
+      ]
+    }
+  ]
+}

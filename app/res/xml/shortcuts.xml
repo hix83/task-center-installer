@@ -1,1 +1,6 @@
-<shortcuts xmlns:android="http://schemas.android.com/apk/res/android"><shortcut android:shortcutId="manage" android:enabled="true" android:icon="@drawable/icon" android:shortcutShortLabel="@string/manage_short" android:shortcutLongLabel="@string/manage_long"><intent android:action="local.taskcenter.launcher.MANAGE" android:targetPackage="local.taskcenter.launcher" android:targetClass="local.taskcenter.launcher.MainActivity"/></shortcut></shortcuts>
+<?xml version="1.0" ?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+  <shortcut android:shortcutId="manage" android:enabled="true" android:icon="@drawable/icon" android:shortcutShortLabel="@string/manage_short" android:shortcutLongLabel="@string/manage_long">
+    <intent android:action="local.taskcenter.launcher.MANAGE" android:targetPackage="local.taskcenter.launcher" android:targetClass="local.taskcenter.launcher.MainActivity"/>
+  </shortcut>
+</shortcuts>

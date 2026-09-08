@@ -5,5 +5,5 @@ The original installer/launcher source, original icon, build scripts and documen
 are licensed under the Apache License, Version 2.0.
 
 Xiaomi Security (com.miui.securitycenter) is a separate third-party component.
-It is not licensed under this project's Apache License. See THIRD_PARTY_NOTICES.md.
+It is not licensed under this project's Apache License. It is downloaded separately in 3.0. See THIRD_PARTY_NOTICES.md.
 This project is independent of and not endorsed by Xiaomi.

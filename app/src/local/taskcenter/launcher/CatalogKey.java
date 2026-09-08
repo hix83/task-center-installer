@@ -1,0 +1,7 @@
+// SPDX-License-Identifier: Apache-2.0
+package local.taskcenter.launcher;
+
+final class CatalogKey {
+  static final String PUBLIC_KEY =
+      "MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAysu1xHgyvyKFzFxwLH9fZBQDtrgVGAMyNuGoCqlGfs8M64qarOrMHXDMVzyeE2wue3+fVaLJxsA7Dk18NEcXEZHVqHVglXM4txRKLigXHc+vX30AI8jf5sQdPJJZbgfGAHz43oPIQuyOsd/4oVCHFxgelz0tC/i+3TS233cwAZwabxMVlvj45THBGVtbAQboTCXQsMhz96mp+TXTuNoqshuNuUDdtDPqfAjlSsxbQda0Q1BDt8UCvQc+VUMEnRuPKM8hZGtSfppk0RKflR3vwRVvdVoo3DU4yGLrRfPIO7hZU2T6aYnnTuWgkP1vtLDAPrpeT+3AjrXDe+0RCqlmV8NoymzLrtypg2v+5OIfUYxoefJ0+yEodllYVW/vox9COtD19XV2RETm83IwvgQkfshN3hIl4EemyFUPhjtx7nNJ9GAklefKD35DJhEvL0Ves+2b1VQQ/cDIBP5tePWAPO//LUMcKLnigxd6uLkE7sgcYPk4nXmaX73fSbRzV14xAgMBAAE=";
+}

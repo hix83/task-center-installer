@@ -19,7 +19,9 @@ public class MainActivity extends Activity {
   static final String PKG = "com.miui.securitycenter",
       TARGET = "com.miui.autotask.activity.TaskManagerActivity",
       CERT = "c9009d01ebf9f5d0302bc71b2fe9aa9a47a432bba17308a3111b75d7b2149025";
-  static final long VERSION = 40001283;
+  Catalog catalog;
+  Downloads network;
+  String catalogNotice = "";
   LinearLayout box;
   TextView status;
   boolean busy = false, shown = false;
@@ -30,12 +32,19 @@ public class MainActivity extends Activity {
 
   public void onCreate(Bundle b) {
     super.onCreate(b);
+    try {
+      catalog = Catalog.local(this);
+    } catch (Exception e) {
+      catalogNotice = "Каталог недоступен: " + e.getMessage();
+    }
     getWindow()
         .getDecorView()
         .setSystemUiVisibility(
             View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
     if (!getIntent().getBooleanExtra("setup", false)
         && !"local.taskcenter.launcher.MANAGE".equals(getIntent().getAction())
+        && (getPreferences(MODE_PRIVATE).getBoolean("setupSeen3", false)
+            || "local.taskcenter.launcher.OPEN".equals(getIntent().getAction()))
         && ready()) {
       openTasks();
       return;
@@ -51,7 +60,7 @@ public class MainActivity extends Activity {
   boolean ready() {
     try {
       ActivityInfo a = getPackageManager().getActivityInfo(new ComponentName(PKG, TARGET), 0);
-      return a.enabled && a.exported && a.applicationInfo.enabled;
+      return a.enabled && a.exported && a.applicationInfo.enabled && signed(installed());
     } catch (Exception e) {
       return false;
     }
@@ -61,7 +70,7 @@ public class MainActivity extends Activity {
     return getPackageManager().getPackageInfo(PKG, PackageManager.GET_SIGNING_CERTIFICATES);
   }
 
-  boolean signed(PackageInfo p) throws Exception {
+  static boolean signed(PackageInfo p) throws Exception {
     if (p.signingInfo == null) return false;
     for (android.content.pm.Signature s : p.signingInfo.getApkContentsSigners()) {
       byte[] hash = MessageDigest.getInstance("SHA-256").digest(s.toByteArray());
@@ -125,6 +134,10 @@ public class MainActivity extends Activity {
           17,
           Color.DKGRAY);
       button("Открыть Task Center", () -> openTasks());
+      button("Добавить ярлык на рабочий стол", () -> pinShortcut());
+      button("Обновить каталог", () -> refreshCatalog());
+      if (!catalogNotice.isEmpty()) text(catalogNotice, 14, Color.DKGRAY);
+      button("Скопировать сведения об устройстве", () -> copyDiagnostics());
       rollbackSection();
       text(
           "Если значка нет на рабочем столе, перенесите Task Center из списка приложений.",
@@ -132,55 +145,190 @@ public class MainActivity extends Activity {
           Color.DKGRAY);
       return;
     }
-    String reason = null;
+    renderInstaller();
+  }
+
+  CatalogPolicy.Device device() throws Exception {
+    return new CatalogPolicy.Device(
+        Build.DEVICE,
+        Build.MODEL,
+        Build.VERSION.SDK_INT,
+        Build.VERSION.INCREMENTAL,
+        installed().getLongVersionCode());
+  }
+
+  String diagnostics() {
+    String version = "не установлена";
     try {
       PackageInfo p = installed();
-      text("Безопасность: " + p.versionName, 15, Color.DKGRAY);
-      if (!signed(p))
-        reason = "Подпись установленной «Безопасности» не совпадает с проверенной подписью Xiaomi.";
-      else if (p.getLongVersionCode() > VERSION)
+      version = p.versionName + " (" + p.getLongVersionCode() + ")";
+    } catch (Exception ignored) {
+    }
+    return "Task Center 3.0\nМодель: "
+        + Build.MANUFACTURER
+        + " "
+        + Build.MODEL
+        + "\nУстройство: "
+        + Build.DEVICE
+        + "\nAndroid: "
+        + Build.VERSION.RELEASE
+        + " / API "
+        + Build.VERSION.SDK_INT
+        + "\nСборка: "
+        + Build.VERSION.INCREMENTAL
+        + "\nБезопасность: "
+        + version
+        + "\nКаталог: "
+        + (catalog == null ? "нет" : catalog.revision);
+  }
+
+  void copyDiagnostics() {
+    android.content.ClipboardManager cb =
+        (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+    cb.setPrimaryClip(ClipData.newPlainText("Task Center — совместимость", diagnostics()));
+    Toast.makeText(this, "Сведения скопированы — можно отправить разработчику", Toast.LENGTH_LONG)
+        .show();
+  }
+
+  void renderInstaller() {
+    text("Подбор компонента", 22, Color.rgb(22, 35, 55));
+    text(diagnostics(), 14, Color.DKGRAY);
+    if (!catalogNotice.isEmpty()) text(catalogNotice, 15, Color.DKGRAY);
+    button("Обновить каталог", () -> refreshCatalog());
+    CatalogPolicy.Entry selected = null;
+    String reason = null;
+    try {
+      if (!signed(installed()))
+        reason = "Подпись «Безопасности» не совпадает с проверенной подписью Xiaomi.";
+      else if (catalog == null)
         reason =
-            "На телефоне установлена более новая «Безопасность». Встроенный APK не подходит для"
-                + " обновления. Понижение версии не выполняется.";
+            "Нужен проверенный каталог. Подключитесь к интернету и нажмите «Обновить каталог».";
+      else {
+        selected = CatalogPolicy.select(catalog.entries, device());
+        if (selected == null)
+          reason =
+              "Для этой модели, сборки HyperOS и версии «Безопасности» пока нет подтверждённого"
+                  + " обновления. Мы не будем устанавливать случайный APK. Обновите каталог или"
+                  + " отправьте сведения разработчику.";
+      }
     } catch (Exception e) {
-      reason =
-          "Не удалось проверить системное приложение «Безопасность». Этот установщик предназначен"
-              + " для Xiaomi с HyperOS.";
+      reason = "Не удалось проверить «Безопасность»: " + e.getMessage();
     }
-    if (Build.VERSION.SDK_INT < 28) reason = "Нужен Android 9 или новее.";
-    if (reason != null) {
-      text("Установка недоступна", 23, Color.rgb(160, 65, 35));
-      text(reason, 17, Color.DKGRAY);
-      rollbackSection();
-      return;
+    if (reason != null) text(reason, 17, Color.DKGRAY);
+    else {
+      final CatalogPolicy.Entry entry = selected;
+      text("Доступна версия " + entry.versionName, 20, Color.rgb(28, 120, 80));
+      try {
+        text(CatalogPolicy.evidence(entry, device()), 15, Color.DKGRAY);
+      } catch (Exception ignored) {
+      }
+      text(
+          "Скачивание: "
+              + (entry.size / 1024 / 1024)
+              + " МБ. Обновится всё приложение «Безопасность». Интерфейс может стать английским,"
+              + " настройки и другие функции могут измениться. Android попросит подтвердить"
+              + " обновление.",
+          16,
+          Color.DKGRAY);
+      button(
+          getPackageManager().canRequestPackageInstalls()
+              ? "Скачать и установить"
+              : "Разрешить установку",
+          () -> install(entry));
     }
-    text("1. Обновите «Безопасность»", 22, Color.rgb(22, 35, 55));
-    text(
-        "Внутри — оригинальная китайская версия 12.8.3. Интернет не нужен. Android попросит"
-            + " разрешить установку из Task Center и подтвердить обновление.",
-        17,
-        Color.DKGRAY);
-    text(
-        "Обновится всё приложение «Безопасность». Его интерфейс может стать английским; на других"
-            + " моделях возможны сбои. Открытие Task Center проверено на Xiaomi 15T Pro и 17T Pro."
-            + " Выполнение сценариев ещё не проверено.",
-        15,
-        Color.DKGRAY);
-    button(
-        getPackageManager().canRequestPackageInstalls()
-            ? "Установить компонент"
-            : "Разрешить установку",
-        () -> install());
-    status = text("2. После обновления вернитесь сюда и откройте Task Center.", 16, Color.DKGRAY);
+    status =
+        text(
+            "Установка выполняется только после вашего нажатия. После системного подтверждения"
+                + " вернитесь сюда.",
+            15,
+            Color.DKGRAY);
+    button("Скопировать сведения об устройстве", () -> copyDiagnostics());
     rollbackSection();
     text(
-        "Источник APK: MemeOS Updates. Подпись сверена со штатной «Безопасностью» Xiaomi. Это"
-            + " независимый установщик, не приложение Xiaomi.",
+        "Независимый установщик. Каталог и APK загружаются с GitHub. Серийный номер, аккаунты и"
+            + " список приложений не отправляются. Компонент Xiaomi не входит в лицензию Apache 2.0"
+            + " нашего кода.",
         13,
         Color.GRAY);
   }
 
-  void install() {
+  interface Work {
+    void run() throws Exception;
+  }
+
+  void background(String message, Work work) {
+    if (busy) return;
+    busy = true;
+    network = new Downloads();
+    showBusy(message);
+    new Thread(
+            () -> {
+              try {
+                work.run();
+              } catch (Exception e) {
+                ui(
+                    () -> {
+                      busy = false;
+                      show();
+                      error(e.getMessage() == null ? "Операция не выполнена" : e.getMessage());
+                    });
+              }
+            })
+        .start();
+  }
+
+  void ui(Runnable r) {
+    runOnUiThread(
+        () -> {
+          if (!isFinishing() && !isDestroyed()) r.run();
+        });
+  }
+
+  void showBusy(String message) {
+    box.removeAllViews();
+    text("Task Center", 28, Color.rgb(22, 35, 55));
+    status = text(message, 18, Color.DKGRAY);
+    button(
+        "Отменить",
+        () -> {
+          if (network != null) network.cancel();
+          status.setText("Отмена…");
+        });
+  }
+
+  protected void onDestroy() {
+    if (network != null && busy) network.cancel();
+    super.onDestroy();
+  }
+
+  void refreshCatalog() {
+    background(
+        "Получение и проверка каталога…",
+        () -> {
+          Catalog fresh = Catalog.refresh(this, network, catalog == null ? 1 : catalog.revision);
+          ui(
+              () -> {
+                catalog = fresh;
+                catalogNotice = "Каталог обновлён и подпись проверена.";
+                busy = false;
+                show();
+              });
+        });
+  }
+
+  static String hash(File f) throws Exception {
+    MessageDigest md = MessageDigest.getInstance("SHA-256");
+    try (InputStream in = new FileInputStream(f)) {
+      byte[] b = new byte[65536];
+      int n;
+      while ((n = in.read(b)) != -1) md.update(b, 0, n);
+    }
+    StringBuilder hex = new StringBuilder();
+    for (byte b : md.digest()) hex.append(String.format("%02x", b & 255));
+    return hex.toString();
+  }
+
+  void install(CatalogPolicy.Entry entry) {
     if (!getPackageManager().canRequestPackageInstalls()) {
       try {
         startActivity(
@@ -192,54 +340,59 @@ public class MainActivity extends Activity {
       }
       return;
     }
-    if (busy) return;
-    busy = true;
-    status.setText("Подготовка и проверка APK…");
-    new Thread(
-            () -> {
-              try {
-                File f = new File(getCacheDir(), "security.apk");
-                try (InputStream in = getAssets().open("security.apk");
-                    OutputStream out = new FileOutputStream(f)) {
-                  byte[] buf = new byte[65536];
-                  int n;
-                  while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
-                }
-                PackageInfo p =
-                    getPackageManager()
-                        .getPackageArchiveInfo(
-                            f.getPath(), PackageManager.GET_SIGNING_CERTIFICATES);
-                if (p == null
-                    || !PKG.equals(p.packageName)
-                    || p.getLongVersionCode() != VERSION
-                    || !signed(p)) throw new IOException("Не пройдена проверка APK");
-                PackageInfo cur = installed();
-                if (!signed(cur) || cur.getLongVersionCode() > VERSION)
-                  throw new IOException("Установленная версия изменилась или несовместима");
-                runOnUiThread(
-                    () -> {
-                      busy = false;
-                      Uri u = Uri.parse("content://local.taskcenter.launcher.apk/security.apk");
-                      Intent i =
-                          new Intent(Intent.ACTION_VIEW)
-                              .setDataAndType(u, "application/vnd.android.package-archive")
-                              .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                      i.setClipData(ClipData.newRawUri("APK", u));
-                      try {
-                        startActivity(i);
-                      } catch (Exception e) {
-                        error("Не удалось открыть системный установщик.");
-                      }
-                    });
-              } catch (Exception e) {
-                runOnUiThread(
-                    () -> {
-                      busy = false;
-                      error("Установка не начата: " + e.getMessage());
-                    });
-              }
-            })
-        .start();
+    background(
+        "Скачивание «Безопасности»…",
+        () -> {
+          File part = File.createTempFile("security-", ".part", getCacheDir());
+          try {
+            try (OutputStream out = new FileOutputStream(part)) {
+              network.copy(
+                  entry.url,
+                  out,
+                  entry.size,
+                  entry.size,
+                  bytes ->
+                      ui(() -> status.setText("Скачивание: " + (100 * bytes / entry.size) + "%")));
+            }
+            ui(() -> status.setText("Проверка APK…"));
+            if (!entry.sha256.equals(hash(part)))
+              throw new IOException("Контрольная сумма APK не совпала. Файл не будет установлен.");
+            PackageInfo p =
+                getPackageManager()
+                    .getPackageArchiveInfo(part.getPath(), PackageManager.GET_SIGNING_CERTIFICATES);
+            if (p == null
+                || !PKG.equals(p.packageName)
+                || p.getLongVersionCode() != entry.versionCode
+                || !signed(p))
+              throw new IOException("Подпись, пакет или версия скачанного APK не прошли проверку.");
+            if (!signed(installed())
+                || CatalogPolicy.select(java.util.Collections.singletonList(entry), device())
+                    == null)
+              throw new IOException("Версия на телефоне изменилась. Повторите подбор компонента.");
+            if (network.cancelled) throw new IOException("Скачивание отменено");
+            File f = new File(getCacheDir(), "security.apk");
+            if (!part.renameTo(f))
+              throw new IOException("Не удалось подготовить APK для установки");
+            ui(
+                () -> {
+                  busy = false;
+                  show();
+                  Uri u = Uri.parse("content://local.taskcenter.launcher.apk/security.apk");
+                  Intent i =
+                      new Intent(Intent.ACTION_VIEW)
+                          .setDataAndType(u, "application/vnd.android.package-archive")
+                          .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                  i.setClipData(ClipData.newRawUri("APK", u));
+                  try {
+                    startActivity(i);
+                  } catch (Exception e) {
+                    error("Не удалось открыть системный установщик: " + e.getMessage());
+                  }
+                });
+          } finally {
+            part.delete();
+          }
+        });
   }
 
   void rollbackSection() {
@@ -305,8 +458,37 @@ public class MainActivity extends Activity {
         .show();
   }
 
+  void pinShortcut() {
+    ShortcutManager sm = getSystemService(ShortcutManager.class);
+    if (sm == null || !sm.isRequestPinShortcutSupported()) {
+      error(
+          "Рабочий стол не поддерживает запрос ярлыка. Перенесите Task Center из списка"
+              + " приложений.");
+      return;
+    }
+    for (ShortcutInfo item : sm.getPinnedShortcuts())
+      if ("task-center-direct".equals(item.getId())) {
+        Toast.makeText(this, "Ярлык уже закреплён", Toast.LENGTH_LONG).show();
+        return;
+      }
+    Intent i = new Intent(this, MainActivity.class).setAction("local.taskcenter.launcher.OPEN");
+    ShortcutInfo shortcut =
+        new ShortcutInfo.Builder(this, "task-center-direct")
+            .setShortLabel("Task Center")
+            .setIcon(
+                android.graphics.drawable.Icon.createWithResource(this, getApplicationInfo().icon))
+            .setIntent(i)
+            .build();
+    try {
+      if (!sm.requestPinShortcut(shortcut, null)) error("Рабочий стол отклонил запрос ярлыка.");
+    } catch (Exception e) {
+      error("Не удалось запросить ярлык: " + e.getMessage());
+    }
+  }
+
   void openTasks() {
     try {
+      getPreferences(MODE_PRIVATE).edit().putBoolean("setupSeen3", true).apply();
       startActivity(
           new Intent()
               .setClassName(PKG, TARGET)

@@ -1,1 +1,5 @@
-<resources><string name="manage_short">Настройка и откат</string><string name="manage_long">Настройка и откат Task Center</string></resources>
+<?xml version="1.0" ?>
+<resources>
+  <string name="manage_short">Настройка и откат</string>
+  <string name="manage_long">Настройка и откат Task Center</string>
+</resources>
