@@ -1,0 +1,12 @@
+/build/
+/.local/
+/third_party/*.apk
+*.apk
+*.idsig
+*.jks
+*.keystore
+*.pem
+*.key
+.env
+__pycache__/
+.DS_Store
