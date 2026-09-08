@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "revision": 2,
+  "revision": 3,
   "releases": [
     {
       "id": "security-12.8.3-cn",
@@ -65,7 +65,7 @@
       "versionName": "12.6.1-260608.1.1",
       "versionCode": 40001261,
       "observedAs": "installed",
-      "status": "verified_on_one_configuration_only",
+      "status": "verified_on_17t_pro_but_failed_on_xiaomi_14",
       "source": "User-provided App info screenshot; independent APK inspection of the previously connected 17T Pro",
       "device": null,
       "model": null,
@@ -74,7 +74,25 @@
       "candidateReleaseIds": [
         "security-12.8.3-cn"
       ],
-      "note": "Пакет и versionCode проверены по ранее извлечённому APK. Переход на 12.8.3 проверен через ADB только на warhol / 2602EPTC0G / API 36 / OS3.0.306.0.WPSRUXM; открытие Task Center работает. Модель со скриншота неизвестна. Новых разрешающих правил по этому скриншоту не добавлено."
+      "note": "versionCode проверен отдельно по APK 17T Pro. Пользователь сообщил об отказе обычной установки 12.8.3 на Xiaomi 14 / Android 16 с исходной 12.6.1. Полная сборка HyperOS и ошибка установщика ещё неизвестны. Разрешающего правила для Xiaomi 14 нет.",
+      "reportedModelName": "Xiaomi 14",
+      "reportedAndroidRelease": "16"
+    }
+  ],
+  "reportedFailures": [
+    {
+      "modelName": "Xiaomi 14",
+      "androidRelease": "16",
+      "sourceVersionName": "12.6.1-260608.1.1",
+      "targetReleaseId": "security-12.8.3-cn",
+      "method": "standard_apk_install",
+      "outcome": "installation_failed",
+      "evidence": "User report; source version screenshot and model/Android supplied in conversation",
+      "device": null,
+      "modelCode": null,
+      "hyperosBuild": null,
+      "installerError": null,
+      "note": "Причина отказа неизвестна. Не распространять положительный результат установки через ADB на 17T Pro на эту модель."
     }
   ]
 }
