@@ -66,6 +66,8 @@ python3 scripts/build.py --keystore .local/release.jks
 
 При отдельном пароле ключа используйте `TASK_CENTER_KEY_PASS`. Результат: `build/Task-Center-Installer-3.0.apk` и `build/SHA256SUMS.txt`. Нужен только подписанный каталог из исходников — скачивать Xiaomi APK для сборки не требуется. Личная сборка с другим ключом не обновит официальный релиз проекта поверх него. Храните свой ключ отдельно от Git.
 
+Подробный статус проверок версии 3.0: [VALIDATION-3.0.md](docs/VALIDATION-3.0.md).
+
 ## Проверки разработки
 
 ```sh
