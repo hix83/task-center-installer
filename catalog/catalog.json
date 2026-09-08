@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "revision": 3,
+  "revision": 4,
   "releases": [
     {
       "id": "security-12.8.3-cn",
@@ -68,13 +68,13 @@
       "status": "verified_on_17t_pro_but_failed_on_xiaomi_14",
       "source": "User-provided App info screenshot; independent APK inspection of the previously connected 17T Pro",
       "device": null,
-      "model": null,
+      "model": "23127PN0CG",
       "androidSdk": null,
-      "hyperosBuild": null,
+      "hyperosBuild": "3.0.304.0.WNCRUXM.C09",
       "candidateReleaseIds": [
         "security-12.8.3-cn"
       ],
-      "note": "versionCode проверен отдельно по APK 17T Pro. Пользователь сообщил об отказе обычной установки 12.8.3 на Xiaomi 14 / Android 16 с исходной 12.6.1. Полная сборка HyperOS и ошибка установщика ещё неизвестны. Разрешающего правила для Xiaomi 14 нет.",
+      "note": "Пользователь подтвердил скриншотами отказ обновления 12.6.1 → 12.8.3 на Xiaomi 14, модель 23127PN0CG, Android 16, HyperOS 3.0.304.0.WNCRUXM.C09. Системный установщик сообщает App not installed. Точный код ошибки не получен. versionCode 40001261 проверен отдельно по APK с 17T Pro, не извлечён с этого Xiaomi 14.",
       "reportedModelName": "Xiaomi 14",
       "reportedAndroidRelease": "16"
     }
@@ -87,12 +87,14 @@
       "targetReleaseId": "security-12.8.3-cn",
       "method": "standard_apk_install",
       "outcome": "installation_failed",
-      "evidence": "User report; source version screenshot and model/Android supplied in conversation",
+      "evidence": "User-provided screenshots: model and OS details, source Security version and system installer failure dialog",
       "device": null,
-      "modelCode": null,
-      "hyperosBuild": null,
-      "installerError": null,
-      "note": "Причина отказа неизвестна. Не распространять положительный результат установки через ADB на 17T Pro на эту модель."
+      "modelCode": "23127PN0CG",
+      "hyperosBuild": "3.0.304.0.WNCRUXM.C09",
+      "installerError": "App not installed.",
+      "note": "Номер HyperOS записан как показан в интерфейсе; точное значение Build.VERSION.INCREMENTAL и код отказа PackageInstaller ещё не получены. Правил допуска установки для этой конфигурации нет.",
+      "androidBuild": "BP2A.250605.031.A3",
+      "securityPatch": "2026-07-01"
     }
   ]
 }
