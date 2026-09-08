@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "revision": 1,
+  "revision": 2,
   "releases": [
     {
       "id": "security-12.8.3-cn",
@@ -32,6 +32,49 @@
           "evidence": "Проверены установка через ADB и открытие Task Center. Установка через мастер и срабатывание задач не проверены."
         }
       ]
+    }
+  ],
+  "observedSources": [
+    {
+      "versionName": "11.1.6-251213.1.1",
+      "versionCode": null,
+      "observedAs": "installed_before_offered_update",
+      "status": "needs_device_details_and_apk_inspection",
+      "source": "User-provided Xiaomi system app updater screenshot",
+      "device": null,
+      "model": null,
+      "androidSdk": null,
+      "hyperosBuild": null,
+      "candidateReleaseIds": [],
+      "note": "На первом скриншоте указана как исходная версия перед предлагаемым обновлением до 11.2.1. Модель, Android, HyperOS и versionCode по скриншоту не определяются. Правил установки нет."
+    },
+    {
+      "versionName": "11.2.1-260701.1.1",
+      "versionCode": null,
+      "observedAs": "offered_update",
+      "status": "needs_device_details_and_apk_inspection",
+      "source": "User-provided Xiaomi system app updater screenshot",
+      "device": null,
+      "model": null,
+      "androidSdk": null,
+      "hyperosBuild": null,
+      "candidateReleaseIds": [],
+      "note": "На первом скриншоте предлагается обновление; факт установки этой версии не подтверждён. versionCode не выведен из номера версии. Правил установки нет."
+    },
+    {
+      "versionName": "12.6.1-260608.1.1",
+      "versionCode": 40001261,
+      "observedAs": "installed",
+      "status": "verified_on_one_configuration_only",
+      "source": "User-provided App info screenshot; independent APK inspection of the previously connected 17T Pro",
+      "device": null,
+      "model": null,
+      "androidSdk": null,
+      "hyperosBuild": null,
+      "candidateReleaseIds": [
+        "security-12.8.3-cn"
+      ],
+      "note": "Пакет и versionCode проверены по ранее извлечённому APK. Переход на 12.8.3 проверен через ADB только на warhol / 2602EPTC0G / API 36 / OS3.0.306.0.WPSRUXM; открытие Task Center работает. Модель со скриншота неизвестна. Новых разрешающих правил по этому скриншоту не добавлено."
     }
   ]
 }
